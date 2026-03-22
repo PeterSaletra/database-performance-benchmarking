@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -92,10 +94,28 @@ def _safe_float(value: Any) -> float | None:
 
 
 def _sqlite_connect(db_path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA synchronous=NORMAL;")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(db_path), timeout=30)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    except sqlite3.OperationalError:
+        conn.execute("PRAGMA journal_mode=DELETE;")
+        conn.execute("PRAGMA synchronous=FULL;")
     return conn
+
+
+def default_cache_dir() -> Path:
+    raw = os.environ.get("RETAIL_CACHE_DIR")
+    if raw:
+        return Path(raw)
+    return Path(tempfile.gettempdir()) / "retail_dwh_cache"
+
+
+def default_cache_path(filename: str = "retail_denorm.sqlite") -> Path:
+    cache_dir = default_cache_dir()
+    ensure_cache_dir(cache_dir)
+    return cache_dir / filename
 
 
 def ensure_cache_dir(cache_dir: Path) -> None:

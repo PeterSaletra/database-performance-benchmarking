@@ -44,6 +44,13 @@ Flags:
 	- `denormalized`: ERD-like documents/JSON (embedded customer/items/product/category/supplier, etc.)
 - `--dataset-id OWNER/DATASET` - overrides the Kaggle dataset id.
 
+Notes:
+
+- In `--nosql-mode denormalized`, MongoDB/Redis import builds a local SQLite cache for `order_items` joins. This cache can be many GB.
+- By default, the cache is created under `%TEMP%\retail_dwh_cache` on Windows.
+- You can change the location with env `RETAIL_CACHE_DIR` (recommended if your C: drive is small).
+- The cache is deleted automatically after a successful import; set env `RETAIL_KEEP_CACHE=1` to keep it.
+
 Examples:
 
 ```bash

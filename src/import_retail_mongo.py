@@ -27,10 +27,10 @@ from retail_denormalize import (
     build_order_items_cache_rows,
     build_table_ref_map,
     compute_csv_max_int,
+    default_cache_path,
     denorm_load_customers,
     denorm_load_products,
     denorm_load_stores,
-    ensure_cache_dir,
     fetch_items_for_orders,
     fetch_optional_by_order_id,
     iter_csv_rows,
@@ -356,9 +356,7 @@ def import_denormalized_mongo(db, table_defs, batch_size: int, reset: bool, orde
             flush=True,
         )
 
-    cache_dir = Path.cwd() / ".cache"
-    ensure_cache_dir(cache_dir)
-    cache_path = cache_dir / "retail_denorm.sqlite"
+    cache_path = default_cache_path("retail_denorm.sqlite")
 
     print("Building SQLite cache for order_items (+ optional payments/shipments)...", flush=True)
     t0 = time.perf_counter()
@@ -393,99 +391,108 @@ def import_denormalized_mongo(db, table_defs, batch_size: int, reset: bool, orde
     if max_order_id is not None:
         print(f"  - max {orders_pk} in CSV: {max_order_id:,}", flush=True)
 
-    while inserted_total < orders_target_rows:
-        offset = (max_order_id or 0) * pass_idx
+    keep_cache = str(os.environ.get("RETAIL_KEEP_CACHE", "")).strip().lower() in {"1", "true", "yes"}
+    try:
+        while inserted_total < orders_target_rows:
+            offset = (max_order_id or 0) * pass_idx
 
-        print(
-            f"  - pass {pass_idx + 1}: offset={offset:,}, inserted_total={inserted_total:,}",
-            flush=True,
-        )
+            print(
+                f"  - pass {pass_idx + 1}: offset={offset:,}, inserted_total={inserted_total:,}",
+                flush=True,
+            )
 
-        for rows in iter_csv_rows(orders_ref.csv_path, chunksize=batch_size):
-            if inserted_total >= orders_target_rows:
-                break
-
-            base_order_ids: list[str] = []
-            base_rows: list[dict[str, Any]] = []
-            for row in rows:
-                if inserted_total + len(base_rows) >= orders_target_rows:
+            for rows in iter_csv_rows(orders_ref.csv_path, chunksize=batch_size):
+                if inserted_total >= orders_target_rows:
                     break
-                if row.get(orders_pk) is None:
-                    continue
-                base_order_ids.append(str(row[orders_pk]))
-                base_rows.append(row)
 
-            items_by_order = fetch_items_for_orders(cache_path, base_order_ids)
-            payments_by_order = (
-                fetch_optional_by_order_id(cache_path, "payments", base_order_ids)
-                if payments_ref is not None
-                else {}
-            )
-            shipments_by_order = (
-                fetch_optional_by_order_id(cache_path, "shipments", base_order_ids)
-                if shipments_ref is not None
-                else {}
-            )
+                base_order_ids: list[str] = []
+                base_rows: list[dict[str, Any]] = []
+                for row in rows:
+                    if inserted_total + len(base_rows) >= orders_target_rows:
+                        break
+                    if row.get(orders_pk) is None:
+                        continue
+                    base_order_ids.append(str(row[orders_pk]))
+                    base_rows.append(row)
 
-            docs: list[dict[str, Any]] = []
-            for row in base_rows:
-                base_id = str(row[orders_pk])
+                items_by_order = fetch_items_for_orders(cache_path, base_order_ids)
+                payments_by_order = (
+                    fetch_optional_by_order_id(cache_path, "payments", base_order_ids)
+                    if payments_ref is not None
+                    else {}
+                )
+                shipments_by_order = (
+                    fetch_optional_by_order_id(cache_path, "shipments", base_order_ids)
+                    if shipments_ref is not None
+                    else {}
+                )
 
-                new_id = base_id
-                if pass_idx > 0 and max_order_id is not None:
+                docs: list[dict[str, Any]] = []
+                for row in base_rows:
+                    base_id = str(row[orders_pk])
+
+                    new_id = base_id
+                    if pass_idx > 0 and max_order_id is not None:
+                        try:
+                            new_id = str(int(base_id) + offset)
+                        except Exception:
+                            new_id = f"{base_id}_{pass_idx}"
+
+                    customer_obj = None
+                    if customer_fk and row.get(customer_fk) is not None:
+                        customer_obj = customers_by_src.get(str(row[customer_fk]))
+                    store_obj = None
+                    if store_fk and row.get(store_fk) is not None:
+                        store_obj = stores_by_src.get(str(row[store_fk]))
+
+                    items = [
+                        _convert_product_in_item(i)
+                        for i in items_by_order.get(base_id, [])
+                        if isinstance(i, dict)
+                    ]
+
+                    payment_obj = payments_by_order.get(base_id, {})
+                    shipment_obj = shipments_by_order.get(base_id, {})
+
+                    doc = {
+                        "_id": _to_oid(stable_object_id_hex("orders", new_id)),
+                        "customer": (
+                            {**customer_obj, "_id": _to_oid(customer_obj["_id"])}
+                            if isinstance(customer_obj, dict) and "_id" in customer_obj
+                            else None
+                        ),
+                        "store_id": _to_oid(store_obj["_id"]) if isinstance(store_obj, dict) else None,
+                        "order_date": row.get(date_col) if date_col else None,
+                        "status": row.get(status_col) if status_col else None,
+                        "items": items,
+                        "payment": payment_obj if payment_obj else {},
+                        "shipment": shipment_obj if shipment_obj else {},
+                    }
+                    doc = {k: v for k, v in doc.items() if v not in (None, {}, [])}
+                    docs.append(doc)
+
+                if docs:
+                    t_ins = time.perf_counter()
                     try:
-                        new_id = str(int(base_id) + offset)
-                    except Exception:
-                        new_id = f"{base_id}_{pass_idx}"
+                        db["orders"].insert_many(docs, ordered=False)
+                    except BulkWriteError:
+                        pass
+                    inserted_total += len(docs)
 
-                customer_obj = None
-                if customer_fk and row.get(customer_fk) is not None:
-                    customer_obj = customers_by_src.get(str(row[customer_fk]))
-                store_obj = None
-                if store_fk and row.get(store_fk) is not None:
-                    store_obj = stores_by_src.get(str(row[store_fk]))
+                    if inserted_total == len(docs) or inserted_total % 100_000 == 0:
+                        print(
+                            f"  - orders inserted: {inserted_total:,}/{orders_target_rows:,} (+{len(docs):,} in {time.perf_counter() - t_ins:.2f}s)",
+                            flush=True,
+                        )
 
-                items = [
-                    _convert_product_in_item(i)
-                    for i in items_by_order.get(base_id, [])
-                    if isinstance(i, dict)
-                ]
-
-                payment_obj = payments_by_order.get(base_id, {})
-                shipment_obj = shipments_by_order.get(base_id, {})
-
-                doc = {
-                    "_id": _to_oid(stable_object_id_hex("orders", new_id)),
-                    "customer": (
-                        {**customer_obj, "_id": _to_oid(customer_obj["_id"])}
-                        if isinstance(customer_obj, dict) and "_id" in customer_obj
-                        else None
-                    ),
-                    "store_id": _to_oid(store_obj["_id"]) if isinstance(store_obj, dict) else None,
-                    "order_date": row.get(date_col) if date_col else None,
-                    "status": row.get(status_col) if status_col else None,
-                    "items": items,
-                    "payment": payment_obj if payment_obj else {},
-                    "shipment": shipment_obj if shipment_obj else {},
-                }
-                doc = {k: v for k, v in doc.items() if v not in (None, {}, [])}
-                docs.append(doc)
-
-            if docs:
-                t_ins = time.perf_counter()
-                try:
-                    db["orders"].insert_many(docs, ordered=False)
-                except BulkWriteError:
-                    pass
-                inserted_total += len(docs)
-
-                if inserted_total == len(docs) or inserted_total % 100_000 == 0:
-                    print(
-                        f"  - orders inserted: {inserted_total:,}/{orders_target_rows:,} (+{len(docs):,} in {time.perf_counter() - t_ins:.2f}s)",
-                        flush=True,
-                    )
-
-        pass_idx += 1
+            pass_idx += 1
+    finally:
+        if not keep_cache:
+            try:
+                cache_path.unlink(missing_ok=True)
+                print(f"Deleted SQLite cache: {cache_path}", flush=True)
+            except Exception:
+                pass
 
 
 def main() -> int:
