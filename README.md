@@ -3,7 +3,7 @@ A comparative performance analysis of relational and non-relational database man
 
 ## Test environment quickstart
 
-Recommended Python version: 3.11 or 3.12 (some dependencies may not provide wheels for Python 3.14 yet).
+Recommended Python version: 3.11 or 3.12 (ScyllaDB requires `cassandra-driver`, which may fail to install on Python 3.13+ on Windows).
 
 1. Copy `.env.example` to `.env`.
 2. Start services:
@@ -15,8 +15,9 @@ docker compose up -d
 3. Install Python dependencies:
 
 ```bash
-python -m venv .venv
+py -3.12 -m venv .venv
 . .venv/Scripts/activate
+python --version
 pip install -r requirements.txt
 ```
 
@@ -43,7 +44,7 @@ Each database has a separate importer (run from the repository root):
 python src/import_retail_postgres.py --reset
 python src/import_retail_mysql.py --reset --batch-size 5000
 python src/import_retail_mongo.py --reset --batch-size 10000
-python src/import_retail_redis.py --reset --batch-size 10000
+python src/import_retail_scylla.py --reset --batch-size 10000
 ```
 
 The importers will also expand the `orders` table/collection to 9,000,000 rows by duplicating records.

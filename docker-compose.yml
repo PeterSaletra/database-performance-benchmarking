@@ -61,22 +61,22 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7
-    container_name: benchmark-redis
+  scylla:
+    image: scylladb/scylla:6.2
+    container_name: benchmark-scylla
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${SCYLLA_PORT}:9042"
     volumes:
-      - redis_data:/data
+      - scylla_data:/var/lib/scylla
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
+      test: ["CMD-SHELL", "cqlsh -e \"DESCRIBE KEYSPACES\" localhost 9042"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
 
 volumes:
   postgres_data:
   mysql_data:
   mongo_data:
-  redis_data:
+  scylla_data:

@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import mysql.connector
 import psycopg
-import redis
 from pymongo import MongoClient
 
 
@@ -70,23 +69,66 @@ def check_mongo() -> CheckResult:
         return CheckResult("MongoDB", False, str(exc))
 
 
-def check_redis() -> CheckResult:
+def check_scylla() -> CheckResult:
     try:
-        client = redis.Redis(
-            host=os.getenv("REDIS_HOST", "localhost"),
-            port=int(os.getenv("REDIS_PORT", "6379")),
-            decode_responses=True,
-            socket_connect_timeout=5,
-        )
-        pong = client.ping()
-        client.close()
-        return CheckResult("Redis", bool(pong), "PING OK" if pong else "PING failed")
+        try:
+            connection_class = None
+
+            if sys.platform.startswith("win") and sys.version_info >= (3, 12):
+                try:
+                    import asyncio
+
+                    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                except Exception:
+                    pass
+
+            if sys.version_info >= (3, 12):
+                try:
+                    from cassandra.io.asyncioreactor import AsyncioConnection
+
+                    connection_class = AsyncioConnection
+                except Exception as exc:
+                    raise RuntimeError(
+                        "Python 3.12+ requires cassandra-driver asyncio reactor, but it could not be imported. "
+                        "Try reinstalling cassandra-driver in this venv. Original error: "
+                        + repr(exc)
+                    ) from exc
+
+            from cassandra.cluster import Cluster
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Missing dependency 'cassandra-driver'. ScyllaDB connectivity checks require Python 3.11/3.12 on Windows (Python 3.13+ is commonly unsupported)."
+            ) from exc
+        except Exception as exc:
+            msg = str(exc)
+            if "Unable to load a default connection class" in msg and sys.version_info >= (3, 12):
+                raise RuntimeError(
+                    "cassandra-driver failed to import due to reactor selection on Python 3.12+. "
+                    "Upgrade the driver (recommended: cassandra-driver==3.29.3) and retry. "
+                    "If you still hit this, use Python 3.11 for ScyllaDB. Original error: "
+                    + msg
+                ) from exc
+            raise
+
+        host = os.getenv("SCYLLA_HOST", "localhost")
+        port = int(os.getenv("SCYLLA_PORT", "9042"))
+
+        kwargs = {}
+        if connection_class is not None:
+            kwargs["connection_class"] = connection_class
+
+        cluster = Cluster([host], port=port, **kwargs)
+        session = cluster.connect()
+        row = session.execute("SELECT release_version FROM system.local;").one()
+        version = getattr(row, "release_version", None) or "unknown"
+        cluster.shutdown()
+        return CheckResult("ScyllaDB", True, version)
     except Exception as exc:
-        return CheckResult("Redis", False, str(exc))
+        return CheckResult("ScyllaDB", False, str(exc))
 
 
 def main() -> int:
-    checks = [check_postgres(), check_mysql(), check_mongo(), check_redis()]
+    checks = [check_postgres(), check_mysql(), check_mongo(), check_scylla()]
 
     print("=== Database Connectivity Check ===")
     for result in checks:

@@ -14,8 +14,16 @@ DEFAULT_ORDERS_TARGET_ROWS = 9_000_000
 
 def ensure_supported_python() -> None:
     if sys.version_info >= (3, 14):
+        detected = sys.version.split()[0]
         raise RuntimeError(
-            "Python 3.14 detected. Use Python 3.11 or 3.12 for this project (numpy/pandas may crash or fail to install on 3.14 on Windows)."
+            "Unsupported Python version detected (Python "
+            + detected
+            + "). Use Python 3.11 or 3.12 for this project on Windows (numpy/pandas/cassandra-driver may crash or fail to install on 3.14).\n\n"
+            "Suggested fix (PowerShell):\n"
+            "  py -3.12 -m venv .venv\n"
+            "  .venv\\Scripts\\Activate.ps1\n"
+            "  pip install -r requirements.txt\n"
+            "  python src/import_data.py --reset --batch-size 10000 --orders-target-rows 9000000 --nosql-mode denormalized"
         )
 
 

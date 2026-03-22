@@ -8,7 +8,7 @@ from pathlib import Path
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Import the Kaggle Retail Data Warehouse dataset into PostgreSQL, MySQL, MongoDB and Redis (sequentially)."
+            "Import the Kaggle Retail Data Warehouse dataset into PostgreSQL, MySQL, MongoDB and ScyllaDB (sequentially)."
         )
     )
     parser.add_argument(
@@ -31,13 +31,13 @@ def parse_args() -> argparse.Namespace:
         "--batch-size",
         type=int,
         default=10_000,
-        help="Batch size for CSV chunking (used by MySQL/Mongo/Redis; default: 10000).",
+        help="Batch size for CSV chunking (used by MySQL/Mongo/ScyllaDB; default: 10000).",
     )
     parser.add_argument(
         "--nosql-mode",
         choices=["tables", "denormalized"],
         default="denormalized",
-        help="Mongo/Redis import mode (default: denormalized).",
+        help="Mongo/ScyllaDB import mode (default: denormalized).",
     )
     return parser.parse_args()
 
@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
 def run_step(label: str, script_path: Path, script_args: list[str]) -> None:
     cmd = [sys.executable, str(script_path), *script_args]
     print(f"\n=== {label} ===")
+    print(f"Python: {sys.executable} ({sys.version.split()[0]})")
     print("Running:", " ".join(cmd))
     start = time.perf_counter()
     proc = subprocess.run(cmd, check=False)
@@ -92,8 +93,8 @@ def main() -> int:
     # )
     steps.append(
         (
-            "Redis import",
-            src_dir / "import_retail_redis.py",
+            "ScyllaDB import",
+            src_dir / "import_retail_scylla.py",
             [*common_args, "--batch-size", str(args.batch_size), "--mode", args.nosql_mode],
         )
     )
