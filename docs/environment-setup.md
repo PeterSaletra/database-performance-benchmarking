@@ -28,18 +28,32 @@ python src/check_connections.py
 
 Expected result: all 4 services return `OK`.
 
-## 5. Import synthetic benchmark data
+## 5. Run DB data setup script
 
 ```bash
-python src/import_data.py --rows 10000 --batch-size 2000 --seed 42 --reset
+python src/import_data.py --reset --batch-size 10000 --orders-target-rows 9000000 --nosql-mode denormalized
 ```
 
-You can prepare larger datasets by increasing `--rows`, for example:
+Flags:
+
+- `--reset` - drops existing data before importing (Postgres/MySQL tables, Mongo collections, Redis keys).
+- `--batch-size N` - CSV chunk size for MySQL/Mongo/Redis imports (default: `10000`).
+- `--orders-target-rows N` - target size for `orders` (default: `9000000`). Relational DBs expand `orders` inside the database; Mongo/Redis expand during import.
+- `--nosql-mode tables|denormalized` - for MongoDB and Redis:
+	- `tables`: 1 CSV -> 1 collection/namespace (row-oriented)
+	- `denormalized`: ERD-like documents/JSON (embedded customer/items/product/category/supplier, etc.)
+- `--dataset-id OWNER/DATASET` - overrides the Kaggle dataset id.
+
+Examples:
 
 ```bash
-python src/import_data.py --rows 100000 --batch-size 5000 --seed 42 --reset
-python src/import_data.py --rows 1000000 --batch-size 10000 --seed 42 --reset
+# import without wiping existing data
+python src/import_data.py --batch-size 10000 --orders-target-rows 9000000 --nosql-mode denormalized
+
+# import with "tables" mode for Mongo/Redis
+python src/import_data.py --reset --batch-size 10000 --orders-target-rows 9000000 --nosql-mode tables
 ```
+
 
 ## 6. Stop services
 
