@@ -13,7 +13,6 @@ DEFAULT_ORDERS_TARGET_ROWS = 9_000_000
 
 
 def ensure_supported_python() -> None:
-    # Numpy/Pandas wheels may not exist for very new Python versions on Windows.
     if sys.version_info >= (3, 14):
         raise RuntimeError(
             "Python 3.14 detected. Use Python 3.11 or 3.12 for this project (numpy/pandas may crash or fail to install on 3.14 on Windows)."
@@ -24,10 +23,10 @@ _PANDAS = None
 
 
 def _pd():
-    global _PANDAS  # noqa: PLW0603
+    global _PANDAS
     if _PANDAS is None:
         ensure_supported_python()
-        import pandas as pd  # type: ignore
+        import pandas as pd
 
         _PANDAS = pd
     return _PANDAS
@@ -49,8 +48,8 @@ def load_env_file(env_path: Path) -> None:
 
 def download_dataset(dataset_id: str = DATASET_ID) -> Path:
     try:
-        import kagglehub  # type: ignore
-    except ModuleNotFoundError as exc:  # pragma: no cover
+        import kagglehub
+    except ModuleNotFoundError as exc:
         raise RuntimeError(
             "Missing dependency 'kagglehub'. Run: pip install -r requirements.txt"
         ) from exc
@@ -109,14 +108,12 @@ class TableDef:
 
 
 def read_csv_header(csv_path: Path) -> list[str]:
-    # Use pandas to robustly parse header with separators/quotes.
     pd = _pd()
     df = pd.read_csv(csv_path, nrows=0)
     return [normalize_column_name(c) for c in df.columns.tolist()]
 
 
 def guess_primary_key(table: str, columns: list[str]) -> str:
-    # Preferred patterns for retail DWH datasets.
     table_singular = table[:-1] if table.endswith("s") else table
     candidates = [
         "id",
@@ -133,7 +130,6 @@ def guess_primary_key(table: str, columns: list[str]) -> str:
     if len(id_cols) == 1:
         return id_cols[0]
 
-    # Fallback: create synthetic PK in SQL.
     return "__row_id"
 
 

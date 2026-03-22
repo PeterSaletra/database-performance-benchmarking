@@ -106,7 +106,6 @@ def import_table_mongo(collection, table_def, batch_size: int, reset: bool) -> N
         try:
             collection.insert_many(docs, ordered=False)
         except BulkWriteError:
-            # ignore duplicates
             pass
 
 
@@ -288,14 +287,12 @@ def import_denormalized_mongo(db, table_defs, batch_size: int, reset: bool, orde
         flush=True,
     )
 
-    # Insert base collections.
     def _insert_many(coll_name: str, docs: list[dict]) -> None:
         if not docs:
             return
         try:
             db[coll_name].insert_many(docs, ordered=False)
         except BulkWriteError:
-            # ignore duplicates (e.g., rerun without reset)
             pass
 
     print("Inserting base collections into MongoDB...", flush=True)
@@ -359,7 +356,6 @@ def import_denormalized_mongo(db, table_defs, batch_size: int, reset: bool, orde
             flush=True,
         )
 
-    # Build SQLite cache for order items (+ optional payment/shipment).
     cache_dir = Path.cwd() / ".cache"
     ensure_cache_dir(cache_dir)
     cache_path = cache_dir / "retail_denorm.sqlite"
@@ -383,7 +379,6 @@ def import_denormalized_mongo(db, table_defs, batch_size: int, reset: bool, orde
 
     print(f"  - SQLite cache ready in {time.perf_counter() - t0:.2f}s ({cache_path})", flush=True)
 
-    # Orders import (and expansion to target rows).
     orders_pk = normalize_column_name(orders_ref.primary_key)
     customer_fk = "customer_id" if "customer_id" in orders_ref.columns else None
     store_fk = "store_id" if "store_id" in orders_ref.columns else None

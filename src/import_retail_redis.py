@@ -90,7 +90,11 @@ def import_table_redis(client: redis.Redis, table_def, batch_size: int, reset: b
 
     next_row_id = int(client.get(count_key) or 0) + 1
 
+    chunk_idx = 0
+    inserted_total = 0
+    t0 = time.perf_counter()
     for chunk in pd.read_csv(table_def.csv_path, chunksize=batch_size, dtype=str):
+        chunk_idx += 1
         chunk = chunk.rename(columns={c: normalize_column_name(c) for c in chunk.columns})
         chunk = chunk.where(pd.notna(chunk), None)
 
@@ -98,7 +102,6 @@ def import_table_redis(client: redis.Redis, table_def, batch_size: int, reset: b
 
         inserted = 0
         for row in chunk.to_dict(orient="records"):
-            # normalize keys and drop None
             row = {k: v for k, v in row.items() if v is not None}
 
             if pk != "__row_id" and pk in row:
@@ -117,6 +120,14 @@ def import_table_redis(client: redis.Redis, table_def, batch_size: int, reset: b
         if inserted:
             pipe.incrby(count_key, inserted)
         pipe.execute()
+
+        inserted_total += inserted
+        if chunk_idx == 1 or chunk_idx % 25 == 0:
+            elapsed = time.perf_counter() - t0
+            print(
+                f"  - {table}: {inserted_total:,} rows inserted ({chunk_idx} chunks) in {elapsed:.1f}s",
+                flush=True,
+            )
 
 
 def expand_orders_redis(client: redis.Redis, orders_def, target_rows: int, batch_size: int) -> None:
@@ -139,6 +150,11 @@ def expand_orders_redis(client: redis.Redis, orders_def, target_rows: int, batch
     while current < target_rows:
         offset = (max_pk_int or 0) * pass_idx
         inserted_this_pass = 0
+
+        print(
+            f"  - pass {pass_idx}: current={current:,}, target={target_rows:,}, offset={offset:,}",
+            flush=True,
+        )
 
         for chunk in pd.read_csv(orders_def.csv_path, chunksize=batch_size, dtype=str):
             if current + inserted_this_pass >= target_rows:
@@ -173,6 +189,12 @@ def expand_orders_redis(client: redis.Redis, orders_def, target_rows: int, batch
             if inserted_this_pass:
                 pipe.incrby(count_key, inserted_this_pass)
             pipe.execute()
+
+            if inserted_this_pass and inserted_this_pass % 100_000 == 0:
+                print(
+                    f"  - orders expanded: +{inserted_this_pass:,} -> {current + inserted_this_pass:,}/{target_rows:,}",
+                    flush=True,
+                )
 
         current += inserted_this_pass
         pass_idx += 1
@@ -279,11 +301,20 @@ def import_denormalized_redis(
             ],
         )
 
+    print("Loading base entities (customers/stores/products)...", flush=True)
+    t0 = time.perf_counter()
+
     customers_by_src = denorm_load_customers(customers_ref, chunksize=batch_size)
     stores_by_src = denorm_load_stores(stores_ref, employees_ref, chunksize=batch_size)
     products_by_src = denorm_load_products(products_ref, categories_ref, suppliers_ref, chunksize=batch_size)
 
-    # Store base documents.
+    print(
+        f"  - loaded customers={len(customers_by_src):,}, stores={len(stores_by_src):,}, products={len(products_by_src):,} in {time.perf_counter() - t0:.2f}s",
+        flush=True,
+    )
+
+    print("Writing base documents to Redis...", flush=True)
+    t0 = time.perf_counter()
     for doc in customers_by_src.values():
         _set_json(client, f"retail:customers:{doc['_id']}", doc)
     for doc in stores_by_src.values():
@@ -291,15 +322,22 @@ def import_denormalized_redis(
     for doc in products_by_src.values():
         _set_json(client, f"retail:products:{doc['_id']}", doc)
 
+    print(f"  - base docs written in {time.perf_counter() - t0:.2f}s", flush=True)
+
     if inventory_ref is not None:
+        print("Building + writing inventory documents...", flush=True)
+        t0 = time.perf_counter()
         inv_docs = build_inventory_docs(inventory_ref, stores_by_src, products_by_src, chunksize=batch_size)
         for doc in inv_docs:
             _set_json(client, f"retail:inventory:{doc['_id']}", doc)
+        print(f"  - inventory written in {time.perf_counter() - t0:.2f}s", flush=True)
 
-    # Build SQLite cache for order items (+ optional payment/shipment).
     cache_dir = Path.cwd() / ".cache"
     ensure_cache_dir(cache_dir)
     cache_path = cache_dir / "retail_denorm.sqlite"
+
+    print("Building SQLite cache for order_items (+ optional payments/shipments)...", flush=True)
+    t0 = time.perf_counter()
 
     order_items_rows = build_order_items_cache_rows(order_items_ref, products_by_src, chunksize=batch_size)
     payments_rows = (
@@ -315,6 +353,8 @@ def import_denormalized_redis(
 
     rebuild_sqlite_cache(cache_path, order_items_rows, payments_rows, shipments_rows)
 
+    print(f"  - SQLite cache ready in {time.perf_counter() - t0:.2f}s ({cache_path})", flush=True)
+
     orders_pk = normalize_column_name(orders_ref.primary_key)
     customer_fk = "customer_id" if "customer_id" in orders_ref.columns else None
     store_fk = "store_id" if "store_id" in orders_ref.columns else None
@@ -325,8 +365,17 @@ def import_denormalized_redis(
     pass_idx = 0
     inserted_total = 0
 
+    print(f"Writing denormalized orders to Redis (target {orders_target_rows:,})...", flush=True)
+    if max_order_id is not None:
+        print(f"  - max {orders_pk} in CSV: {max_order_id:,}", flush=True)
+
     while inserted_total < orders_target_rows:
         offset = (max_order_id or 0) * pass_idx
+
+        print(
+            f"  - pass {pass_idx + 1}: offset={offset:,}, inserted_total={inserted_total:,}",
+            flush=True,
+        )
 
         for rows in iter_csv_rows(orders_ref.csv_path, chunksize=batch_size):
             if inserted_total >= orders_target_rows:
@@ -384,6 +433,12 @@ def import_denormalized_redis(
                 _set_json(client, f"retail:orders:{order_doc['_id']}", order_doc)
                 inserted_total += 1
 
+                if inserted_total == 1 or inserted_total % 100_000 == 0:
+                    print(
+                        f"  - orders written: {inserted_total:,}/{orders_target_rows:,}",
+                        flush=True,
+                    )
+
                 if inserted_total >= orders_target_rows:
                     break
 
@@ -400,9 +455,13 @@ def main() -> int:
     ensure_supported_python()
 
     dataset_id = args.dataset_id or os.getenv("KAGGLE_DATASET_ID")
+    print("Downloading dataset via kagglehub...", flush=True)
     dataset_path = download_dataset(dataset_id) if dataset_id else download_dataset()
+    print(f"Dataset ready at: {dataset_path}", flush=True)
 
+    print("Discovering CSV tables...", flush=True)
     table_defs = build_table_defs(dataset_path)
+    print(f"Discovered {len(table_defs)} tables.", flush=True)
 
     client = redis.Redis(
         host=os.getenv("REDIS_HOST", "localhost"),
@@ -414,15 +473,22 @@ def main() -> int:
         if args.mode == "tables":
             for td in table_defs:
                 start = time.perf_counter()
+                print(f"Importing {td.name}...", flush=True)
                 import_table_redis(client, td, args.batch_size, args.reset)
-                print(f"[OK] Imported {td.name} in {time.perf_counter() - start:.2f}s")
+                print(
+                    f"[OK] Imported {td.name} in {time.perf_counter() - start:.2f}s",
+                    flush=True,
+                )
 
             orders_def = next((d for d in table_defs if is_orders_table(d.name)), None)
             if orders_def:
-                print(f"Expanding orders to {args.orders_target_rows:,} rows...")
+                print(f"Expanding orders to {args.orders_target_rows:,} rows...", flush=True)
                 start = time.perf_counter()
                 expand_orders_redis(client, orders_def, args.orders_target_rows, args.batch_size)
-                print(f"[OK] Orders expanded in {time.perf_counter() - start:.2f}s")
+                print(
+                    f"[OK] Orders expanded in {time.perf_counter() - start:.2f}s",
+                    flush=True,
+                )
         else:
             start = time.perf_counter()
             import_denormalized_redis(
@@ -432,7 +498,10 @@ def main() -> int:
                 args.reset,
                 args.orders_target_rows,
             )
-            print(f"[OK] Denormalized import finished in {time.perf_counter() - start:.2f}s")
+            print(
+                f"[OK] Denormalized import finished in {time.perf_counter() - start:.2f}s",
+                flush=True,
+            )
 
     finally:
         client.close()

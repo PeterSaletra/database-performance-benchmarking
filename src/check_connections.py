@@ -29,7 +29,7 @@ def check_postgres() -> CheckResult:
                 cur.execute("SELECT version();")
                 version = cur.fetchone()[0]
         return CheckResult("PostgreSQL", True, version)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return CheckResult("PostgreSQL", False, str(exc))
 
 
@@ -48,7 +48,7 @@ def check_mysql() -> CheckResult:
             version = cur.fetchone()[0]
         conn.close()
         return CheckResult("MySQL", True, version)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return CheckResult("MySQL", False, str(exc))
 
 
@@ -66,7 +66,7 @@ def check_mongo() -> CheckResult:
         version = client.server_info().get("version", "unknown")
         client.close()
         return CheckResult("MongoDB", True, version)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return CheckResult("MongoDB", False, str(exc))
 
 
@@ -81,7 +81,7 @@ def check_redis() -> CheckResult:
         pong = client.ping()
         client.close()
         return CheckResult("Redis", bool(pong), "PING OK" if pong else "PING failed")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return CheckResult("Redis", False, str(exc))
 
 

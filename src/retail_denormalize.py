@@ -18,7 +18,6 @@ def stable_hex(namespace: str, value: str) -> str:
 
 
 def stable_object_id_hex(namespace: str, value: str) -> str:
-    # 24 hex chars for Mongo ObjectId.
     return stable_hex(namespace, value)[:24]
 
 
@@ -59,7 +58,6 @@ def _col_like(columns: list[str], pattern: str) -> list[str]:
 def build_address(row: dict[str, Any]) -> dict[str, Any]:
     address: dict[str, Any] = {}
 
-    # Common address fields (best-effort).
     for k in list(row.keys()):
         if k.startswith("address_"):
             address[k.removeprefix("address_")] = row[k]
@@ -187,7 +185,6 @@ def fetch_items_for_orders(cache_path: Path, order_ids: list[str]) -> dict[str, 
     try:
         out: dict[str, list[dict[str, Any]]] = {oid: [] for oid in order_ids}
 
-        # SQLite has a limit on query variables; chunk it.
         chunk_size = 800
         for i in range(0, len(order_ids), chunk_size):
             sub = order_ids[i : i + chunk_size]
@@ -332,7 +329,6 @@ def denorm_load_customers(customers: TableRef, chunksize: int) -> dict[str, dict
                 "last_name": last,
                 "address": build_address(row),
             }
-            # drop None fields
             doc = {k: v for k, v in doc.items() if v not in (None, {}, [])}
             out[sid] = doc
     return out
@@ -347,7 +343,6 @@ def denorm_load_stores(
     name_col = find_column(stores.columns, "store_name", "name")
     out: dict[str, dict[str, Any]] = {}
 
-    # Preload employees per store.
     employees_by_store: dict[str, list[dict[str, Any]]] = {}
     if employees is not None:
         store_fk = infer_fk_column(employees.columns, "store_id")

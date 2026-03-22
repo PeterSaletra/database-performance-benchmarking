@@ -62,7 +62,6 @@ def run_step(label: str, script_path: Path, script_args: list[str]) -> None:
 def main() -> int:
     args = parse_args()
 
-    # Scripts live next to this file.
     src_dir = Path(__file__).resolve().parent
     steps: list[tuple[str, Path, list[str]]] = []
 
@@ -75,15 +74,15 @@ def main() -> int:
     if args.dataset_id:
         common_args.extend(["--dataset-id", args.dataset_id])
 
-   # steps.append(("PostgreSQL import", src_dir / "import_retail_postgres.py", common_args))
+    steps.append(("PostgreSQL import", src_dir / "import_retail_postgres.py", common_args))
 
-  #  steps.append(
-   #     (
-   #         "MySQL import",
-   #         src_dir / "import_retail_mysql.py",
-   #         [*common_args, "--batch-size", str(args.batch_size)],
-    #    )
-   # )
+    steps.append(
+        (
+            "MySQL import",
+            src_dir / "import_retail_mysql.py",
+            [*common_args, "--batch-size", str(args.batch_size)],
+        )
+    )
     steps.append(
         (
             "MongoDB import",
@@ -105,7 +104,7 @@ def main() -> int:
                 print(f"Missing script: {script}")
                 return 2
             run_step(label, script, s_args)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"Import pipeline failed: {exc}")
         return 1
 

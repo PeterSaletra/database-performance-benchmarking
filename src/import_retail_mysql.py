@@ -72,7 +72,6 @@ def add_foreign_keys_mysql(conn, table_def) -> None:
     cur = conn.cursor()
     for fk in table_def.foreign_keys:
         try:
-            # MySQL requires an index on FK columns.
             idx_name = normalize_table_name(f"idx_{table_def.name}_{fk.column}")
             cur.execute(
                 f"CREATE INDEX {my_ident(idx_name)} ON {table} ({my_col_ident(fk.column)});"
@@ -144,8 +143,6 @@ def ensure_orders_size_mysql(conn, orders_pk: str, target_rows: int) -> None:
         cur.close()
         return
 
-    # If the PK values were inserted explicitly from CSV, AUTO_INCREMENT might not be
-    # positioned correctly in some cases. Make sure it is > MAX(pk).
     if pk != "__row_id":
         cur.execute(f"SELECT COALESCE(MAX({my_col_ident(pk)}), 0) FROM `orders`;")
         max_pk = int(cur.fetchone()[0])
@@ -164,9 +161,6 @@ def ensure_orders_size_mysql(conn, orders_pk: str, target_rows: int) -> None:
     cols = [r[0] for r in cur.fetchall() if r[0] != pk]
     cols_sql = ", ".join(my_col_ident(c) for c in cols)
 
-    # Use a fixed-size batch to avoid huge single-statement inserts which can stall
-    # InnoDB due to redo log pressure (see innodb_redo_log_capacity warnings).
-    # Keep the default conservative; you can override via ORDERS_EXPAND_BATCH.
     batch_limit = int(os.getenv("ORDERS_EXPAND_BATCH", "50000"))
     if batch_limit <= 0:
         batch_limit = 50000
@@ -251,8 +245,6 @@ def main() -> int:
     try:
         if args.reset:
             cur = conn.cursor()
-            # Some tables may already have FK constraints created from a previous run.
-            # Disable checks temporarily so we can drop in any order.
             print("Reset enabled: dropping existing tables...", flush=True)
             cur.execute("SET FOREIGN_KEY_CHECKS=0;")
             for td in reversed(table_defs):
