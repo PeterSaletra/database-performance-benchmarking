@@ -75,22 +75,22 @@ def main() -> int:
     if args.dataset_id:
         common_args.extend(["--dataset-id", args.dataset_id])
 
-    # steps.append(("PostgreSQL import", src_dir / "import_retail_postgres.py", common_args))
+    steps.append(("PostgreSQL import", src_dir / "import_retail_postgres.py", common_args))
 
-    # steps.append(
-    #     (
-    #         "MySQL import",
-    #         src_dir / "import_retail_mysql.py",
-    #         [*common_args, "--batch-size", str(args.batch_size)],
-    #     )
-    # )
-    # steps.append(
-    #     (
-    #         "MongoDB import",
-    #         src_dir / "import_retail_mongo.py",
-    #         [*common_args, "--batch-size", str(args.batch_size), "--mode", args.nosql_mode],
-    #     )
-    # )
+    steps.append(
+        (
+            "MySQL import",
+            src_dir / "import_retail_mysql.py",
+            [*common_args, "--batch-size", str(args.batch_size)],
+        )
+    )
+    steps.append(
+        (
+            "MongoDB import",
+            src_dir / "import_retail_mongo.py",
+            [*common_args, "--batch-size", str(args.batch_size), "--mode", args.nosql_mode],
+        )
+    )
     steps.append(
         (
             "ScyllaDB import",
