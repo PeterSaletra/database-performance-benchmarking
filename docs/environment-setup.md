@@ -1,5 +1,7 @@
 # Test environment setup
 
+Recommended Python version: 3.11 or 3.12 (some dependencies may not provide wheels for Python 3.14 yet).
+
 ## 1. Copy environment variables
 
 Create `.env` in the repository root based on `.env.example`.

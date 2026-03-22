@@ -3,6 +3,8 @@ A comparative performance analysis of relational and non-relational database man
 
 ## Test environment quickstart
 
+Recommended Python version: 3.11 or 3.12 (some dependencies may not provide wheels for Python 3.14 yet).
+
 1. Copy `.env.example` to `.env`.
 2. Start services:
 
@@ -29,5 +31,24 @@ python src/check_connections.py
 ```bash
 python src/import_data.py --rows 10000 --batch-size 2000 --seed 42 --reset
 ```
+
+## Import Kaggle Retail DWH dataset (12 tables)
+
+This repo also contains import scripts for the Kaggle dataset:
+`datarspectrum/retail-data-warehouse-12-table-1m-rows-dataset`.
+
+Each database has a separate importer (run from the repository root):
+
+```bash
+python src/import_retail_postgres.py --reset
+python src/import_retail_mysql.py --reset --batch-size 5000
+python src/import_retail_mongo.py --reset --batch-size 10000
+python src/import_retail_redis.py --reset --batch-size 10000
+```
+
+The importers will also expand the `orders` table/collection to 9,000,000 rows by duplicating records.
+You can change this with `--orders-target-rows` (or env `ORDERS_TARGET_ROWS`).
+
+Note: depending on the dataset access settings, `kagglehub` may require Kaggle credentials configured on your machine.
 
 Detailed setup instructions are available in `docs/environment-setup.md`.

@@ -1,8 +1,9 @@
 faker==37.1.0
+kagglehub==1.0.0
 matplotlib==3.10.1
 mysql-connector-python==9.2.0
 numpy==2.2.4
 pandas==2.2.3
-psycopg[binary]==3.2.6
+psycopg[binary]==3.2.13
 pymongo==4.11.2
 redis==5.2.1

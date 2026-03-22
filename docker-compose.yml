@@ -23,6 +23,8 @@ services:
     image: mysql:8.4
     container_name: benchmark-mysql
     restart: unless-stopped
+    command:
+      - "--innodb_redo_log_capacity=${MYSQL_INNODB_REDO_LOG_CAPACITY:-2147483648}"
     env_file:
       - .env
     environment:
