@@ -27,10 +27,10 @@ pip install -r requirements.txt
 python src/check_connections.py
 ```
 
-5. Import synthetic benchmark dataset:
+5. Import benchmark dataset (Retail DWH):
 
 ```bash
-python src/import_data.py --rows 10000 --batch-size 2000 --seed 42 --reset
+python src/import_data.py --reset --batch-size 10000 --orders-target-rows 9000000 --nosql-mode denormalized
 ```
 
 ## Import Kaggle Retail DWH dataset (12 tables)
@@ -53,3 +53,34 @@ You can change this with `--orders-target-rows` (or env `ORDERS_TARGET_ROWS`).
 Note: depending on the dataset access settings, `kagglehub` may require Kaggle credentials configured on your machine.
 
 Detailed setup instructions are available in `docs/environment-setup.md`.
+
+## Run benchmark MVP (24 CRUD scenarios)
+
+1. Ensure services are up and data was imported.
+2. Run baseline benchmark (without payload indexes):
+
+```bash
+python src/run_benchmarks.py --db all --trials 3 --size-label mvp --mode baseline
+```
+
+3. Run after-index benchmark (creates payload-prefix indexes where supported):
+
+```bash
+python src/run_benchmarks.py --db all --trials 3 --size-label mvp --mode after-index
+```
+
+4. Generate charts for a single run CSV:
+
+```bash
+python src/plot_results.py --input data/results/benchmark_<run_id>.csv --output-dir plots
+```
+
+5. Generate baseline vs after-index comparison artifacts:
+
+```bash
+python src/plot_results.py --baseline-input data/results/benchmark_<baseline_run_id>.csv --after-input data/results/benchmark_<after_run_id>.csv --output-dir plots
+```
+
+Each run also saves EXPLAIN samples to `data/results/explain_<run_id>.json`.
+
+Scenario definitions are documented in `docs/benchmark-scenarios.md`.
