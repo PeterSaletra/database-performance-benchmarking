@@ -1,0 +1,85 @@
+classDiagram
+%% Relacyjne (PostgreSQL / MySQL) – tabele z datasetu Kaggle (12 tables)
+%% Diagram minimalny: pokazuje PK i FK (tak jak importer je wykrywa i dodaje).
+
+class categories {
+  <<table>>
+  category_id: BIGINT <<PK>>
+}
+
+class customers {
+  <<table>>
+  customer_id: BIGINT <<PK>>
+}
+
+class stores {
+  <<table>>
+  store_id: BIGINT <<PK>>
+}
+
+class suppliers {
+  <<table>>
+  supplier_id: BIGINT <<PK>>
+}
+
+class promotions {
+  <<table>>
+  promotion_id: BIGINT <<PK>>
+}
+
+class products {
+  <<table>>
+  product_id: BIGINT <<PK>>
+  supplier_id: BIGINT <<FK>>
+}
+
+class employees {
+  <<table>>
+  employee_id: BIGINT <<PK>>
+  store_id: BIGINT <<FK>>
+}
+
+class orders {
+  <<table>>
+  order_id: BIGINT <<PK>>
+  customer_id: BIGINT <<FK>>
+  store_id: BIGINT <<FK>>
+  promotion_id: BIGINT <<FK>>
+}
+
+class order_items {
+  <<table>>
+  order_item_id: BIGINT <<PK>>
+  order_id: BIGINT <<FK>>
+  product_id: BIGINT <<FK>>
+}
+
+class payments {
+  <<table>>
+  payment_id: BIGINT <<PK>>
+  order_id: BIGINT <<FK>>
+}
+
+class shipments {
+  <<table>>
+  shipment_id: BIGINT <<PK>>
+  order_id: BIGINT <<FK>>
+}
+
+class returns {
+  <<table>>
+  return_id: BIGINT <<PK>>
+  order_item_id: BIGINT <<FK>>
+}
+
+%% Relacje (FK)
+products --> suppliers : supplier_id
+employees --> stores : store_id
+orders --> customers : customer_id
+orders --> stores : store_id
+orders --> promotions : promotion_id
+order_items --> orders : order_id
+order_items --> products : product_id
+payments --> orders : order_id
+shipments --> orders : order_id
+returns --> order_items : order_item_id

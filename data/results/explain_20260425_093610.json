@@ -1,0 +1,17 @@
+{
+  "run_id": "20260425_093610",
+  "mode": "baseline",
+  "generated_at_utc": "2026-04-25T09:36:10.760777+00:00",
+  "databases": {
+    "postgres": {
+      "R2_latest": "Limit  (cost=0.28..0.99 rows=10 width=40)\n  ->  Index Scan using idx_benchmark_ops_updated_at on benchmark_ops  (cost=0.28..385.69 rows=5427 width=40)",
+      "R3_prefix": "Limit  (cost=0.00..134.84 rows=1 width=32)\n  ->  Seq Scan on benchmark_ops  (cost=0.00..134.84 rows=1 width=32)\n        Filter: (payload ~~ 'seed_payload%'::text)"
+    },
+    "mysql": {
+      "R2_latest": "[\n  {\n    \"id\": 1,\n    \"select_type\": \"SIMPLE\",\n    \"table\": \"benchmark_ops\",\n    \"partitions\": null,\n    \"type\": \"index\",\n    \"possible_keys\": null,\n    \"key\": \"idx_benchmark_ops_updated_at\",\n    \"key_len\": \"8\",\n    \"ref\": null,\n    \"rows\": 10,\n    \"filtered\": 100.0,\n    \"Extra\": \"Using index\"\n  }\n]",
+      "R3_prefix": "[\n  {\n    \"id\": 1,\n    \"select_type\": \"SIMPLE\",\n    \"table\": \"benchmark_ops\",\n    \"partitions\": null,\n    \"type\": \"ALL\",\n    \"possible_keys\": null,\n    \"key\": null,\n    \"key_len\": null,\n    \"ref\": null,\n    \"rows\": 2241,\n    \"filtered\": 11.11,\n    \"Extra\": \"Using where\"\n  }\n]"
+    },
+    "mongo": {},
+    "scylla": {}
+  }
+}

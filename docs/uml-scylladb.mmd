@@ -1,0 +1,34 @@
+classDiagram
+%% ScyllaDB (Cassandra)
+%% Diagram celowo „minimal”: tylko fizyczne tabele z importerem (id, data).
+%% Kolumna data zawiera JSON (denormalized), ale nie rozbijamy go na dodatkowe klasy.
+
+class retail_customers {
+  <<table>>
+  id: text <<PK>>
+  data: text (JSON)
+}
+
+class retail_stores {
+  <<table>>
+  id: text <<PK>>
+  data: text (JSON)
+}
+
+class retail_products {
+  <<table>>
+  id: text <<PK>>
+  data: text (JSON)
+}
+
+class retail_inventory {
+  <<table>>
+  id: text <<PK>>
+  data: text (JSON)
+}
+
+class retail_orders {
+  <<table>>
+  id: text <<PK>>
+  data: text (JSON)
+}

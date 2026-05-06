@@ -1,0 +1,54 @@
+classDiagram
+%% MongoDB (mode=denormalized)
+%% Diagram celowo „1:1 z Mongo”:
+%% - tylko kolekcje jako klasy
+%% - zagnieżdżone obiekty jako object / array<object>
+
+class customers {
+  <<collection>>
+  _id: ObjectId
+  first_name: string
+  last_name: string
+  address: object
+}
+
+class stores {
+  <<collection>>
+  _id: ObjectId
+  store_name: string
+  address: object
+  employees: array<object>
+}
+
+class products {
+  <<collection>>
+  _id: ObjectId
+  product_name: string
+  price: float|string
+  category: object
+  supplier: object
+}
+
+class inventory {
+  <<collection>>
+  _id: ObjectId
+  store_id: ObjectId
+  products: array<object>
+}
+
+class orders {
+  <<collection>>
+  _id: ObjectId
+  customer: object
+  store_id: ObjectId
+  order_date: string
+  status: string
+  items: array<object>
+  payment: object
+  shipment: object
+}
+
+%% Referencje (na poziomie pól)
+inventory --> stores : store_id
+orders --> stores : store_id
+orders ..> customers : embedded customer snapshot
