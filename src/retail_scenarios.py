@@ -35,24 +35,6 @@ def _random_price() -> str:
     return f"{random.uniform(10.0, 500.0):.2f}"
 
 
-def _create_customer(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    customer_id = client.create_customer({"city": _random_city(), "signup_date": _now()})
-    ctx["last_customer_id"] = customer_id
-    return 1
-
-
-def _create_product(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    product_id = client.create_product(
-        {
-            "category_id": random.randint(1, 20),
-            "supplier_id": random.randint(1, 20),
-            "price": _random_price(),
-        }
-    )
-    ctx["last_product_id"] = product_id
-    return 1
-
-
 def _create_order(client: RetailDBClient, ctx: dict[str, Any]) -> int:
     order_id = client.create_order(
         {
@@ -79,12 +61,24 @@ def _create_order_item(client: RetailDBClient, ctx: dict[str, Any]) -> int:
     return 1 if item_id is not None else 0
 
 
+def _create_payment(client: RetailDBClient, ctx: dict[str, Any]) -> int:
+    payment_id = client.create_payment({"order_id": ctx["order_id"], "amount": _random_price()})
+    ctx["last_payment_id"] = payment_id
+    return 1 if payment_id is not None else 0
+
+
+def _create_shipment(client: RetailDBClient, ctx: dict[str, Any]) -> int:
+    shipment_id = client.create_shipment({"order_id": ctx["order_id"], "status": _random_text("ship")})
+    ctx["last_shipment_id"] = shipment_id
+    return 1 if shipment_id is not None else 0
+
+
 def _read_customer(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    return client.read_customer(ctx["customer_id"])
+    return client.read_orders_by_customer_id(ctx["order_customer_id"])
 
 
 def _read_product(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    return client.read_product(ctx["product_id"])
+    return client.read_orders_by_store_id(ctx["order_store_id"])
 
 
 def _read_order(client: RetailDBClient, ctx: dict[str, Any]) -> int:
@@ -95,12 +89,20 @@ def _read_order_items(client: RetailDBClient, ctx: dict[str, Any]) -> int:
     return client.read_order_items_for_order(ctx["order_id"])
 
 
+def _read_orders_by_promotion(client: RetailDBClient, ctx: dict[str, Any]) -> int:
+    return client.read_orders_by_promotion_id(ctx["order_promotion_id"])
+
+
+def _read_orders_by_store(client: RetailDBClient, ctx: dict[str, Any]) -> int:
+    return client.read_orders_by_store_id(ctx["order_store_id"])
+
+
 def _update_customer_city(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    return client.update_customer_city(ctx["customer_id"], _random_city())
+    return client.update_order_customer(ctx["order_id"], ctx["customer_id"])
 
 
 def _update_product_price(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    return client.update_product_price(ctx["product_id"], _random_price())
+    return client.update_order_store(ctx["order_id"], random.randint(1, 10))
 
 
 def _update_order_promotion(client: RetailDBClient, ctx: dict[str, Any]) -> int:
@@ -108,7 +110,7 @@ def _update_order_promotion(client: RetailDBClient, ctx: dict[str, Any]) -> int:
 
 
 def _update_shipment_status(client: RetailDBClient, ctx: dict[str, Any]) -> int:
-    return client.update_shipment_status(ctx["shipment_id"], _random_text("status"))
+    return client.update_order_date(ctx["order_id"], _now())
 
 
 def _delete_order_item(client: RetailDBClient, ctx: dict[str, Any]) -> int:
@@ -160,18 +162,18 @@ def _delete_order_cascade(client: RetailDBClient, ctx: dict[str, Any]) -> int:
 
 def build_all_scenarios() -> list[Scenario]:
     return [
-        Scenario("C1", "create", "Create customer", _create_customer),
-        Scenario("C2", "create", "Create product", _create_product),
-        Scenario("C3", "create", "Create order", _create_order),
-        Scenario("C4", "create", "Create order item", _create_order_item),
-        Scenario("R1", "read", "Read customer", _read_customer),
-        Scenario("R2", "read", "Read product", _read_product),
-        Scenario("R3", "read", "Read order", _read_order),
-        Scenario("R4", "read", "Read order items for order", _read_order_items),
-        Scenario("U1", "update", "Update customer city", _update_customer_city),
-        Scenario("U2", "update", "Update product price", _update_product_price),
+        Scenario("C1", "create", "Create order", _create_order),
+        Scenario("C2", "create", "Create order item", _create_order_item),
+        Scenario("C3", "create", "Create payment", _create_payment),
+        Scenario("C4", "create", "Create shipment", _create_shipment),
+        Scenario("R1", "read", "Read order", _read_order),
+        Scenario("R2", "read", "Read orders by customer_id", _read_customer),
+        Scenario("R3", "read", "Read orders by store_id", _read_orders_by_store),
+        Scenario("R4", "read", "Read orders by promotion_id", _read_orders_by_promotion),
+        Scenario("U1", "update", "Update order customer", _update_customer_city),
+        Scenario("U2", "update", "Update order store", _update_product_price),
         Scenario("U3", "update", "Update order promotion", _update_order_promotion),
-        Scenario("U4", "update", "Update shipment status", _update_shipment_status),
+        Scenario("U4", "update", "Update order date", _update_shipment_status),
         Scenario("D1", "delete", "Delete order item", _delete_order_item),
         Scenario("D2", "delete", "Delete payment", _delete_payment),
         Scenario("D3", "delete", "Delete shipment", _delete_shipment),

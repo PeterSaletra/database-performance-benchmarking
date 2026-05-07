@@ -145,6 +145,10 @@ def _prepare_context(client: RetailDBClient) -> dict[str, Any]:
         "customer_id": client.sample_customer_id(),
         "product_id": client.sample_product_id(),
         "order_id": client.sample_order_id(),
+        "order_customer_id": client.sample_order_customer_id(),
+        "order_store_id": client.sample_order_store_id(),
+        "order_promotion_id": client.sample_order_promotion_id(),
+        "order_date": client.sample_order_date(),
         "order_item_id": client.sample_order_item_id(),
         "payment_id": client.sample_payment_id(),
         "shipment_id": client.sample_shipment_id(),
@@ -158,6 +162,14 @@ def _prepare_context(client: RetailDBClient) -> dict[str, Any]:
         ctx["payment_id"] = ctx["order_id"]
     if ctx["shipment_id"] is None:
         ctx["shipment_id"] = ctx["order_id"]
+    if ctx["order_customer_id"] is None:
+        ctx["order_customer_id"] = ctx["customer_id"]
+    if ctx["order_store_id"] is None:
+        ctx["order_store_id"] = 1
+    if ctx["order_promotion_id"] is None:
+        ctx["order_promotion_id"] = 1
+    if ctx["order_date"] is None:
+        ctx["order_date"] = _utc_now().isoformat()
     return ctx
 
 

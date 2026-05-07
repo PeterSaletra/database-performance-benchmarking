@@ -92,6 +92,22 @@ class RetailDBClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def sample_order_customer_id(self) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def sample_order_store_id(self) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def sample_order_promotion_id(self) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def sample_order_date(self) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
     def sample_order_item_id(self) -> Any:
         raise NotImplementedError
 
@@ -144,6 +160,18 @@ class RetailDBClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def read_orders_by_customer_id(self, customer_id: Any) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def read_orders_by_store_id(self, store_id: Any) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def read_orders_by_promotion_id(self, promotion_id: Any) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
     def update_customer_city(self, customer_id: Any, city: str) -> int:
         raise NotImplementedError
 
@@ -153,6 +181,18 @@ class RetailDBClient(ABC):
 
     @abstractmethod
     def update_order_promotion(self, order_id: Any, promotion_id: Any) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_order_customer(self, order_id: Any, customer_id: Any) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_order_store(self, order_id: Any, store_id: Any) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def update_order_date(self, order_id: Any, order_date: Any) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -192,6 +232,10 @@ class _SQLRetailClient(RetailDBClient):
 
     def _mode_index_specs(self) -> list[tuple[str, str, str]]:
         return [
+            ("idx_orders_customer_id", self.order_table, "customer_id"),
+            ("idx_orders_store_id", self.order_table, "store_id"),
+            ("idx_orders_order_date", self.order_table, "order_date"),
+            ("idx_orders_promotion_id", self.order_table, "promotion_id"),
             ("idx_order_items_order_id", self.order_item_table, "order_id"),
             ("idx_payments_order_id", self.payment_table, "order_id"),
             ("idx_shipments_order_id", self.shipment_table, "order_id"),
@@ -252,6 +296,18 @@ class _SQLRetailClient(RetailDBClient):
 
     def sample_order_id(self) -> Any:
         return self._scalar(f"SELECT order_id FROM {self.order_table} ORDER BY order_id LIMIT 1")
+
+    def sample_order_customer_id(self) -> Any:
+        return self._scalar(f"SELECT customer_id FROM {self.order_table} ORDER BY order_id LIMIT 1")
+
+    def sample_order_store_id(self) -> Any:
+        return self._scalar(f"SELECT store_id FROM {self.order_table} ORDER BY order_id LIMIT 1")
+
+    def sample_order_promotion_id(self) -> Any:
+        return self._scalar(f"SELECT promotion_id FROM {self.order_table} WHERE promotion_id IS NOT NULL ORDER BY order_id LIMIT 1")
+
+    def sample_order_date(self) -> Any:
+        return self._scalar(f"SELECT order_date FROM {self.order_table} ORDER BY order_id LIMIT 1")
 
     def sample_order_item_id(self) -> Any:
         return self._scalar(f"SELECT order_item_id FROM {self.order_item_table} ORDER BY order_item_id LIMIT 1")
@@ -370,6 +426,15 @@ class _SQLRetailClient(RetailDBClient):
     def read_order_items_for_order(self, order_id: Any) -> int:
         return self._count(f"SELECT COUNT(*) FROM {self.order_item_table} WHERE order_id = %s", (order_id,))
 
+    def read_orders_by_customer_id(self, customer_id: Any) -> int:
+        return self._count(f"SELECT COUNT(*) FROM {self.order_table} WHERE customer_id = %s", (customer_id,))
+
+    def read_orders_by_store_id(self, store_id: Any) -> int:
+        return self._count(f"SELECT COUNT(*) FROM {self.order_table} WHERE store_id = %s", (store_id,))
+
+    def read_orders_by_promotion_id(self, promotion_id: Any) -> int:
+        return self._count(f"SELECT COUNT(*) FROM {self.order_table} WHERE promotion_id = %s", (promotion_id,))
+
     def update_customer_city(self, customer_id: Any, city: str) -> int:
         return self._execute(f"UPDATE {self.customer_table} SET city = %s WHERE customer_id = %s", (city, customer_id))
 
@@ -381,6 +446,15 @@ class _SQLRetailClient(RetailDBClient):
             f"UPDATE {self.order_table} SET promotion_id = %s WHERE order_id = %s",
             (promotion_id, order_id),
         )
+
+    def update_order_customer(self, order_id: Any, customer_id: Any) -> int:
+        return self._execute(f"UPDATE {self.order_table} SET customer_id = %s WHERE order_id = %s", (customer_id, order_id))
+
+    def update_order_store(self, order_id: Any, store_id: Any) -> int:
+        return self._execute(f"UPDATE {self.order_table} SET store_id = %s WHERE order_id = %s", (store_id, order_id))
+
+    def update_order_date(self, order_id: Any, order_date: Any) -> int:
+        return self._execute(f"UPDATE {self.order_table} SET order_date = %s WHERE order_id = %s", (order_date, order_id))
 
     def update_shipment_status(self, shipment_id_or_order_id: Any, status: str) -> int:
         return self._execute(
@@ -488,10 +562,20 @@ class MySQLRetailClient(_SQLRetailClient):
             autocommit=False,
         )
 
+    def _mysql_index_exists(self, table_name: str, index_name: str) -> bool:
+        cur = self.conn.cursor()
+        try:
+            cur.execute(f"SHOW INDEX FROM {table_name} WHERE Key_name = %s", (index_name,))
+            return cur.fetchone() is not None
+        finally:
+            cur.close()
+
     def _create_mode_indexes(self) -> None:
         cur = self.conn.cursor()
         try:
             for index_name, table_name, column_name in self._mode_index_specs():
+                if self._mysql_index_exists(table_name, index_name):
+                    continue
                 cur.execute(f"CREATE INDEX {index_name} ON {table_name} ({column_name})")
             self.conn.commit()
         except Exception:
@@ -536,22 +620,28 @@ class MongoRetailClient(RetailDBClient):
 
     def configure_mode(self, mode: str) -> None:
         if mode == "after-index":
-            self.customers.create_index([("city", 1)], name="idx_customers_city")
-            self.products.create_index([("price", 1)], name="idx_products_price")
-            self.orders.create_index([("customer_id", 1)], name="idx_orders_customer_id")
-            self.orders.create_index([("promotion_id", 1)], name="idx_orders_promotion_id")
-            self.orders.create_index([("items.order_item_id", 1)], name="idx_orders_items_order_item_id")
-            self.orders.create_index([("payment.payment_id", 1)], name="idx_orders_payment_payment_id")
-            self.orders.create_index([("shipment.shipment_id", 1)], name="idx_orders_shipment_shipment_id")
+            try:
+                self.orders.create_index([("customer_id", 1)], name="idx_orders_customer_id")
+            except Exception:
+                pass
+            try:
+                self.orders.create_index([("store_id", 1)], name="idx_orders_store_id")
+            except Exception:
+                pass
+            try:
+                self.orders.create_index([("order_date", 1)], name="idx_orders_order_date")
+            except Exception:
+                pass
+            try:
+                self.orders.create_index([("promotion_id", 1)], name="idx_orders_promotion_id")
+            except Exception:
+                pass
         else:
             for collection, index_name in [
-                (self.customers, "idx_customers_city"),
-                (self.products, "idx_products_price"),
                 (self.orders, "idx_orders_customer_id"),
+                (self.orders, "idx_orders_store_id"),
+                (self.orders, "idx_orders_order_date"),
                 (self.orders, "idx_orders_promotion_id"),
-                (self.orders, "idx_orders_items_order_item_id"),
-                (self.orders, "idx_orders_payment_payment_id"),
-                (self.orders, "idx_orders_shipment_shipment_id"),
             ]:
                 try:
                     collection.drop_index(index_name)
@@ -590,6 +680,24 @@ class MongoRetailClient(RetailDBClient):
 
     def sample_order_id(self) -> Any:
         return self._sample_id("orders")
+
+    def sample_order_customer_id(self) -> Any:
+        return self._sample_id("orders", "customer_id")
+
+    def sample_order_store_id(self) -> Any:
+        return self._sample_id("orders", "store_id")
+
+    def sample_order_promotion_id(self) -> Any:
+        doc = self.orders.find_one({"promotion_id": {"$ne": None}}, {"promotion_id": 1})
+        if not doc:
+            return self.sample_order_id()
+        return doc.get("promotion_id") or doc.get("_id")
+
+    def sample_order_date(self) -> Any:
+        doc = self.orders.find_one({}, {"order_date": 1})
+        if not doc:
+            return None
+        return doc.get("order_date")
 
     def sample_order_item_id(self) -> Any:
         doc = self.orders.find_one({"items.0": {"$exists": True}}, {"items": 1})
@@ -684,6 +792,15 @@ class MongoRetailClient(RetailDBClient):
         doc = self.orders.find_one({"_id": order_id}, {"items": 1})
         return len(doc.get("items", [])) if doc else 0
 
+    def read_orders_by_customer_id(self, customer_id: Any) -> int:
+        return int(self.orders.count_documents({"customer_id": customer_id}))
+
+    def read_orders_by_store_id(self, store_id: Any) -> int:
+        return int(self.orders.count_documents({"store_id": store_id}))
+
+    def read_orders_by_promotion_id(self, promotion_id: Any) -> int:
+        return int(self.orders.count_documents({"promotion_id": promotion_id}))
+
     def update_customer_city(self, customer_id: Any, city: str) -> int:
         return int(self.customers.update_one({"_id": customer_id}, {"$set": {"city": city}}).modified_count)
 
@@ -692,6 +809,16 @@ class MongoRetailClient(RetailDBClient):
 
     def update_order_promotion(self, order_id: Any, promotion_id: Any) -> int:
         return int(self.orders.update_one({"_id": order_id}, {"$set": {"promotion_id": promotion_id}}).modified_count)
+
+    def update_order_customer(self, order_id: Any, customer_id: Any) -> int:
+        return int(self.orders.update_one({"_id": order_id}, {"$set": {"customer_id": customer_id}}).modified_count)
+
+    def update_order_store(self, order_id: Any, store_id: Any) -> int:
+        return int(self.orders.update_one({"_id": order_id}, {"$set": {"store_id": store_id}}).modified_count)
+
+    def update_order_date(self, order_id: Any, order_date: Any) -> int:
+        value = order_date.isoformat() if hasattr(order_date, "isoformat") else order_date
+        return int(self.orders.update_one({"_id": order_id}, {"$set": {"order_date": value}}).modified_count)
 
     def update_shipment_status(self, shipment_id_or_order_id: Any, status: str) -> int:
         out = self.orders.update_one(
@@ -749,9 +876,19 @@ class ScyllaRetailClient(RetailDBClient):
 
     def configure_mode(self, mode: str) -> None:
         if mode == "after-index":
-            for table in ["retail_customers", "retail_products", "retail_orders"]:
+            for table_name, column_name in [
+                ("scylla_orders_customer_id", "customer_id"),
+                ("scylla_orders_store_id", "store_id"),
+                ("scylla_orders_order_date", "order_date"),
+                ("scylla_orders_promotion_id", "promotion_id"),
+            ]:
                 try:
-                    self.session.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_data ON {table} (data)")
+                    self.session.execute(
+                        f"CREATE TABLE IF NOT EXISTS {table_name} (order_id text PRIMARY KEY, {column_name} text)"
+                    )
+                    self.session.execute(
+                        f"CREATE INDEX IF NOT EXISTS idx_{table_name}_{column_name} ON {table_name} ({column_name})"
+                    )
                 except Exception:
                     pass
         else:
@@ -789,6 +926,19 @@ class ScyllaRetailClient(RetailDBClient):
     def sample_order_id(self) -> Any:
         return self._sample_id("retail_orders")
 
+    def sample_order_customer_id(self) -> Any:
+        return self._sample_id("retail_orders", "customer_id")
+
+    def sample_order_store_id(self) -> Any:
+        return self._sample_id("retail_orders", "store_id")
+
+    def sample_order_promotion_id(self) -> Any:
+        value = self._sample_id("retail_orders", "promotion_id")
+        return value or self.sample_order_id()
+
+    def sample_order_date(self) -> Any:
+        return self._sample_id("retail_orders", "order_date")
+
     def sample_order_item_id(self) -> Any:
         item_id = self._sample_id("retail_orders", "items")
         return item_id or self.sample_order_id()
@@ -803,6 +953,25 @@ class ScyllaRetailClient(RetailDBClient):
 
     def _insert_json_row(self, table: str, row_id: str, data: dict[str, Any]) -> None:
         self.session.execute(f"INSERT INTO {table} (id, data) VALUES (%s, %s)", (row_id, _json_dumps(data)))
+
+    def _sync_order_sidecars(self, order_id: Any, doc: dict[str, Any]) -> None:
+        if order_id is None:
+            return
+        for table_name, column_name, value in [
+            ("scylla_orders_customer_id", "customer_id", doc.get("customer_id")),
+            ("scylla_orders_store_id", "store_id", doc.get("store_id")),
+            ("scylla_orders_order_date", "order_date", doc.get("order_date")),
+            ("scylla_orders_promotion_id", "promotion_id", doc.get("promotion_id")),
+        ]:
+            if value is None:
+                continue
+            try:
+                self.session.execute(
+                    f"INSERT INTO {table_name} (order_id, {column_name}) VALUES (%s, %s)",
+                    (order_id, value if not hasattr(value, "isoformat") else value.isoformat()),
+                )
+            except Exception:
+                pass
 
     def create_customer(self, data: dict[str, Any]) -> Any:
         row_id = _random_string("customer")
@@ -820,17 +989,15 @@ class ScyllaRetailClient(RetailDBClient):
 
     def create_order(self, data: dict[str, Any]) -> Any:
         row_id = _random_string("order")
-        self._insert_json_row(
-            "retail_orders",
-            row_id,
-            {
-                "customer_id": data["customer_id"],
-                "store_id": data["store_id"],
-                "order_date": data["order_date"].isoformat(),
-                "promotion_id": data.get("promotion_id"),
-                "items": [],
-            },
-        )
+        doc = {
+            "customer_id": data["customer_id"],
+            "store_id": data["store_id"],
+            "order_date": data["order_date"].isoformat(),
+            "promotion_id": data.get("promotion_id"),
+            "items": [],
+        }
+        self._insert_json_row("retail_orders", row_id, doc)
+        self._sync_order_sidecars(row_id, doc)
         return row_id
 
     def _load_order_doc(self, order_id: Any) -> dict[str, Any] | None:
@@ -848,6 +1015,7 @@ class ScyllaRetailClient(RetailDBClient):
 
     def _save_order_doc(self, order_id: Any, doc: dict[str, Any]) -> int:
         self.session.execute("UPDATE retail_orders SET data = %s WHERE id = %s", (_json_dumps(doc), order_id))
+        self._sync_order_sidecars(order_id, doc)
         return 1
 
     def create_order_item(self, data: dict[str, Any]) -> Any:
@@ -892,6 +1060,42 @@ class ScyllaRetailClient(RetailDBClient):
         doc = self._load_order_doc(order_id)
         return len(doc.get("items", [])) if doc else 0
 
+    def read_orders_by_customer_id(self, customer_id: Any) -> int:
+        try:
+            row = self.session.execute("SELECT order_id FROM scylla_orders_customer_id WHERE customer_id = %s ALLOW FILTERING", (customer_id,)).one()
+            return 1 if row else 0
+        except Exception:
+            total = 0
+            for row in self.session.execute("SELECT data FROM retail_orders"):
+                doc = _json_loads(getattr(row, "data", None))
+                if doc.get("customer_id") == customer_id:
+                    total += 1
+            return total
+
+    def read_orders_by_store_id(self, store_id: Any) -> int:
+        try:
+            row = self.session.execute("SELECT order_id FROM scylla_orders_store_id WHERE store_id = %s ALLOW FILTERING", (store_id,)).one()
+            return 1 if row else 0
+        except Exception:
+            total = 0
+            for row in self.session.execute("SELECT data FROM retail_orders"):
+                doc = _json_loads(getattr(row, "data", None))
+                if doc.get("store_id") == store_id:
+                    total += 1
+            return total
+
+    def read_orders_by_promotion_id(self, promotion_id: Any) -> int:
+        try:
+            row = self.session.execute("SELECT order_id FROM scylla_orders_promotion_id WHERE promotion_id = %s ALLOW FILTERING", (promotion_id,)).one()
+            return 1 if row else 0
+        except Exception:
+            total = 0
+            for row in self.session.execute("SELECT data FROM retail_orders"):
+                doc = _json_loads(getattr(row, "data", None))
+                if doc.get("promotion_id") == promotion_id:
+                    total += 1
+            return total
+
     def update_customer_city(self, customer_id: Any, city: str) -> int:
         row = self.session.execute("SELECT data FROM retail_customers WHERE id = %s", (customer_id,)).one()
         if not row:
@@ -915,6 +1119,30 @@ class ScyllaRetailClient(RetailDBClient):
         if doc is None:
             return 0
         doc["promotion_id"] = promotion_id
+        self._save_order_doc(order_id, doc)
+        return 1
+
+    def update_order_customer(self, order_id: Any, customer_id: Any) -> int:
+        doc = self._load_order_doc(order_id)
+        if doc is None:
+            return 0
+        doc["customer_id"] = customer_id
+        self._save_order_doc(order_id, doc)
+        return 1
+
+    def update_order_store(self, order_id: Any, store_id: Any) -> int:
+        doc = self._load_order_doc(order_id)
+        if doc is None:
+            return 0
+        doc["store_id"] = store_id
+        self._save_order_doc(order_id, doc)
+        return 1
+
+    def update_order_date(self, order_id: Any, order_date: Any) -> int:
+        doc = self._load_order_doc(order_id)
+        if doc is None:
+            return 0
+        doc["order_date"] = order_date.isoformat() if hasattr(order_date, "isoformat") else order_date
         self._save_order_doc(order_id, doc)
         return 1
 
