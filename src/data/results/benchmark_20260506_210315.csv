@@ -1,0 +1,17 @@
+run_id,db_engine,scenario_id,operation,trial_no,latency_ms,rows_affected,data_size_label,mode,timestamp_utc
+20260506_210315,postgres,C1,create,1,7.335,1,mvp,after-index,2026-05-06T21:03:16.751613+00:00
+20260506_210315,postgres,C2,create,1,8.004,1,mvp,after-index,2026-05-06T21:03:16.760294+00:00
+20260506_210315,postgres,C3,create,1,8.706,1,mvp,after-index,2026-05-06T21:03:16.768961+00:00
+20260506_210315,postgres,C4,create,1,7.761,1,mvp,after-index,2026-05-06T21:03:16.776959+00:00
+20260506_210315,postgres,R1,read,1,2.621,1,mvp,after-index,2026-05-06T21:03:16.779921+00:00
+20260506_210315,postgres,R2,read,1,1.118,1,mvp,after-index,2026-05-06T21:03:16.780929+00:00
+20260506_210315,postgres,R3,read,1,1.529,1,mvp,after-index,2026-05-06T21:03:16.782922+00:00
+20260506_210315,postgres,R4,read,1,1.41,9,mvp,after-index,2026-05-06T21:03:16.784545+00:00
+20260506_210315,postgres,U1,update,1,5.858,1,mvp,after-index,2026-05-06T21:03:16.790536+00:00
+20260506_210315,postgres,U2,update,1,6.118,1,mvp,after-index,2026-05-06T21:03:16.796536+00:00
+20260506_210315,postgres,U3,update,1,7.727,1,mvp,after-index,2026-05-06T21:03:16.804260+00:00
+20260506_210315,postgres,U4,update,1,7.473,1,mvp,after-index,2026-05-06T21:03:16.812260+00:00
+20260506_210315,postgres,D1,delete,1,16.477,1,mvp,after-index,2026-05-06T21:03:16.828085+00:00
+20260506_210315,postgres,D2,delete,1,15.387,1,mvp,after-index,2026-05-06T21:03:16.844483+00:00
+20260506_210315,postgres,D3,delete,1,14.304,1,mvp,after-index,2026-05-06T21:03:16.858803+00:00
+20260506_210315,postgres,D4,delete,1,41.451,1,mvp,after-index,2026-05-06T21:03:16.900278+00:00

@@ -54,7 +54,7 @@ Note: depending on the dataset access settings, `kagglehub` may require Kaggle c
 
 Detailed setup instructions are available in `docs/environment-setup.md`.
 
-## Run benchmark MVP (24 CRUD scenarios)
+## Run benchmark MVP (16 CRUD scenarios)
 
 1. Ensure services are up and data was imported.
 2. Run baseline benchmark (without payload indexes):
@@ -68,6 +68,8 @@ python src/run_benchmarks.py --db all --trials 3 --size-label mvp --mode baselin
 ```bash
 python src/run_benchmarks.py --db all --trials 3 --size-label mvp --mode after-index
 ```
+
+In `after-index` mode the benchmark creates supporting indexes before the run. For SQL databases these are indexes on `order_items.order_id`, `payments.order_id`, and `shipments.order_id`. For MongoDB it also adds indexes on the embedded order fields used by the scenarios, and ScyllaDB keeps the default schema with optional secondary indexes where supported.
 
 4. Generate charts for a single run CSV:
 
