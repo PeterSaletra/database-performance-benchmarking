@@ -1,0 +1,15 @@
+{
+  "run_id": "20260507_184024",
+  "mode": "after-index",
+  "generated_at_utc": "2026-05-07T18:40:24.719023+00:00",
+  "databases": {
+    "postgres": {
+      "error": "the connection is closed"
+    },
+    "mysql": {
+      "error": "MySQL Connection not available."
+    },
+    "mongo": {},
+    "scylla": {}
+  }
+}
