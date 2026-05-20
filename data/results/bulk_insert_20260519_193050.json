@@ -1,0 +1,54 @@
+{
+  "run_id": "20260519_193050",
+  "generated_at_utc": "2026-05-19T19:41:38.019812",
+  "rows": [
+    {
+      "engine": "postgres",
+      "rows": 1000000,
+      "time_s": 122.84012280002935,
+      "mode": "no_index",
+      "run_id": "20260519_193050",
+      "generated_at_utc": "2026-05-19T19:32:53.827542"
+    },
+    {
+      "engine": "postgres",
+      "rows": 1000000,
+      "time_s": 124.02881210000487,
+      "mode": "with_index",
+      "run_id": "20260519_193050",
+      "generated_at_utc": "2026-05-19T19:34:57.880384"
+    },
+    {
+      "engine": "mysql",
+      "rows": 1000000,
+      "time_s": 108.84112130000722,
+      "mode": "no_index",
+      "run_id": "20260519_193050",
+      "generated_at_utc": "2026-05-19T19:36:47.008756"
+    },
+    {
+      "engine": "mysql",
+      "rows": 1000000,
+      "time_s": 110.67671669996344,
+      "mode": "with_index",
+      "run_id": "20260519_193050",
+      "generated_at_utc": "2026-05-19T19:38:37.838496"
+    },
+    {
+      "engine": "mongo",
+      "rows": 1000000,
+      "time_s": 88.25240240001585,
+      "mode": "no_index",
+      "run_id": "20260519_193050",
+      "generated_at_utc": "2026-05-19T19:40:06.205067"
+    },
+    {
+      "engine": "mongo",
+      "rows": 1000000,
+      "time_s": 91.76451979996637,
+      "mode": "with_index",
+      "run_id": "20260519_193050",
+      "generated_at_utc": "2026-05-19T19:41:38.018795"
+    }
+  ]
+}

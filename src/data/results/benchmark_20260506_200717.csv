@@ -1,1 +1,0 @@
-run_id,db_engine,scenario_id,operation,trial_no,latency_ms,rows_affected,data_size_label,mode,timestamp_utc
